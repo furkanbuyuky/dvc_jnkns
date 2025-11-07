@@ -12,7 +12,7 @@ pipeline {
     PIP_CACHE_DIR  = "C:\\jenkins_cache\\pip"
     DVC_REMOTE     = "C:\\dvc_storage"              // Jenkins ajanında erişilebilir yol
     GIT_USER_NAME  = "Furkan Büyükyozgat"           // istersen değiştir
-    GIT_USER_EMAIL = "furkanbuyuky@users.noreply.github.com"
+    GIT_USER_EMAIL = "furkanbuyuky@gmail.com"
     BRANCH_NAME    = "main"
     REPO_SLUG      = "furkanbuyuky/dvc_jnkns"
   }
@@ -165,3 +165,4 @@ pipeline {
     failure { echo "❌ Build FAILED — Console Output'u kontrol et" }
   }
 }
+
