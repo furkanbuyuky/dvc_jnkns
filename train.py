@@ -23,7 +23,7 @@ mlflow.set_experiment("student_regression_demo")
 #   Dosyayı proje köküne koy: student_scores.csv
 #   (sütun adları: Hours, Scores)
 # -------------------------------------------------
-data = pd.read_csv(PROJECT_ROOT / "student_scores.csv")
+data = pd.read_csv(PROJECT_ROOT / data / "student_scores.csv")
 X = data[["Hours"]].values
 y = data["Scores"].values
 
@@ -76,3 +76,4 @@ with mlflow.start_run(run_name="linear_regression_student"):
     print(f"m={m:.4f}  b={b:.4f}  MSE={mse:.4f}  RMSE={rmse:.4f}  R2={r2:.4f}")
 
 print("✓ Bitti. MLflow UI’da run, metrikler ve fit_plot.png görünecek.")
+
