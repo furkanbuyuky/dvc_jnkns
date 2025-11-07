@@ -151,7 +151,8 @@ pipeline {
 
             echo [PUSH] git push
             git remote set-url origin https://%GIT_PAT%@github.com/%REPO_SLUG%.git
-            git push origin HEAD:%BRANCH_NAME%
+            git fetch origin %BRANCH_NAME%
+            git push origin HEAD:%BRANCH_NAME% --force
 
             exit /b 0
           """
@@ -165,4 +166,5 @@ pipeline {
     failure { echo "❌ Build FAILED — Console Output'u kontrol et" }
   }
 }
+
 
