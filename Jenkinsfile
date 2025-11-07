@@ -10,11 +10,11 @@ pipeline {
   environment {
     VENV           = ".venv"
     PIP_CACHE_DIR  = "C:\\jenkins_cache\\pip"
-    DVC_REMOTE     = "C:\\dvc_storage"                  // Jenkins ajanında erişilebilir yol
-    GIT_USER_NAME  = "jenkins-bot"
-    GIT_USER_EMAIL = "jenkins@example.com"
-    REPO_URL       = "https://github.com/furkanbuyuky/dvc_jnkns.git"
+    DVC_REMOTE     = "C:\\dvc_storage"              // Jenkins ajanında erişilebilen yol
+    GIT_USER_NAME  = "Furkan Büyükyozgat"           // istersen değiştir
+    GIT_USER_EMAIL = "furkanbuyuky@users.noreply.github.com"
     BRANCH_NAME    = "main"
+    REPO_SLUG      = "furkanbuyuky/dvc_jnkns"
   }
 
   stages {
@@ -35,6 +35,7 @@ pipeline {
           ) else (
             echo [SETUP] venv already exists.
           )
+
           call "%VENV%\\Scripts\\activate"
           python -m pip install --upgrade pip
           python -m pip install --cache-dir "%PIP_CACHE_DIR%" dvc
@@ -47,7 +48,6 @@ pipeline {
     stage('Ensure DVC repo (.dvc)') {
       steps {
         bat """
-          echo [CHECK] DVC repo var mi?
           if not exist ".dvc" (
             echo [INIT] .dvc yok -> dvc init
             call "%VENV%\\Scripts\\activate"
@@ -64,24 +64,42 @@ pipeline {
       }
     }
 
-    stage('Configure DVC Remote') {
+    stage('Configure DVC Remote (+commit if changed)') {
       steps {
         bat """
           call "%VENV%\\Scripts\\activate"
           echo [REMOTE] ensure default remote=storage -> %DVC_REMOTE%
           dvc remote add -d storage "%DVC_REMOTE%" 2>nul || dvc remote modify storage url "%DVC_REMOTE%"
           dvc remote list
+
+          rem .dvc/config değiştiyse commit'le
+          git config user.name "%GIT_USER_NAME%"
+          git config user.email "%GIT_USER_EMAIL%"
+          git add .dvc\\config
+          git commit -m "CI: update DVC remote config" || echo no changes
+
+          exit /b 0
         """
       }
     }
 
-    stage('Track data if exists') {
+    stage('Track data (idempotent)') {
       steps {
         bat """
           call "%VENV%\\Scripts\\activate"
+
           if exist "data\\student_scores.csv" (
-            echo [DVC] add data\\student_scores.csv
+            echo [CHECK] is tracked by Git?
+            git ls-files --error-unmatch "data\\student_scores.csv" >nul 2>&1
+            if %ERRORLEVEL%==0 (
+              echo [FIX] Untracking from Git...
+              git rm --cached "data\\student_scores.csv"
+              if not exist ".gitignore" type NUL > .gitignore
+            )
+
+            echo [DVC] dvc add data\\student_scores.csv
             dvc add "data\\student_scores.csv" || echo already tracked
+
             git config user.name "%GIT_USER_NAME%"
             git config user.email "%GIT_USER_EMAIL%"
             git add "data\\student_scores.csv.dvc" .gitignore
@@ -89,6 +107,8 @@ pipeline {
           ) else (
             echo [INFO] data\\student_scores.csv yok, dvc add atlandi.
           )
+
+          exit /b 0
         """
       }
     }
@@ -98,10 +118,11 @@ pipeline {
         bat """
           call "%VENV%\\Scripts\\activate"
           if not exist "dvc.yaml" (
-            echo [INIT] dvc.yaml olusturuluyor (train stage)...
+            echo [INIT] dvc.yaml(train) olusturuluyor...
             if not exist models mkdir models
             dvc add "data\\student_scores.csv" 2>nul || echo already tracked
             dvc stage add -n train -d train.py -d data\\student_scores.csv -o models\\model.pkl python train.py -- --in data\\student_scores.csv --out models\\model.pkl
+
             git config user.name "%GIT_USER_NAME%"
             git config user.email "%GIT_USER_EMAIL%"
             git add dvc.yaml dvc.lock data\\student_scores.csv.dvc .gitignore
@@ -109,6 +130,7 @@ pipeline {
           ) else (
             echo [OK] dvc.yaml zaten var.
           )
+          exit /b 0
         """
       }
     }
@@ -121,8 +143,9 @@ pipeline {
             echo [RUN] dvc repro -f
             dvc repro -f
           ) else (
-            echo [SKIP] dvc.yaml yok, repro atlandi. & exit /b 0
+            echo [SKIP] dvc.yaml yok, repro atlandi.
           )
+          exit /b 0
         """
       }
     }
@@ -135,6 +158,7 @@ pipeline {
           git config user.email "%GIT_USER_EMAIL%"
           git add dvc.yaml dvc.lock .gitignore 2>nul
           git commit -m "CI: update DVC metadata/lock" || echo no changes
+          exit /b 0
         """
       }
     }
@@ -144,12 +168,15 @@ pipeline {
         withCredentials([string(credentialsId: 'git-pat', variable: 'GIT_PAT')]) {
           bat """
             call "%VENV%\\Scripts\\activate"
+
             echo [PUSH] dvc push
             dvc push
 
             echo [PUSH] git push
-            git remote set-url origin https://%GIT_PAT%@github.com/furkanbuyuky/dvc_jnkns.git
+            git remote set-url origin https://%GIT_PAT%@github.com/%REPO_SLUG%.git
             git push origin HEAD:%BRANCH_NAME%
+
+            exit /b 0
           """
         }
       }
@@ -158,6 +185,6 @@ pipeline {
 
   post {
     success { echo "✅ Build OK — venv ve pip cache korundu" }
-    failure { echo "❌ Build FAILED — Console Output'u kontrol et" }
+    failure { echo "❌ Build FAILED — Console Output'u kontrol et (özellikle 'Track data' ve 'Ensure dvc.yaml' stage'leri) " }
   }
 }
