@@ -10,7 +10,7 @@ pipeline {
   environment {
     VENV           = ".venv"
     PIP_CACHE_DIR  = "C:\\jenkins_cache\\pip"
-    DVC_REMOTE     = "C:\\dvc_storage"              // Jenkins ajanında erişilebilen yol
+    DVC_REMOTE     = "C:\\dvc_storage"              // Jenkins ajanında erişilebilir yol
     GIT_USER_NAME  = "Furkan Büyükyozgat"           // istersen değiştir
     GIT_USER_EMAIL = "furkanbuyuky@users.noreply.github.com"
     BRANCH_NAME    = "main"
@@ -77,7 +77,6 @@ pipeline {
           git config user.email "%GIT_USER_EMAIL%"
           git add .dvc\\config
           git commit -m "CI: update DVC remote config" || echo no changes
-
           exit /b 0
         """
       }
@@ -113,29 +112,7 @@ pipeline {
       }
     }
 
-    stage('Ensure dvc.yaml (auto-create if missing)') {
-      steps {
-        bat """
-          call "%VENV%\\Scripts\\activate"
-          if not exist "dvc.yaml" (
-            echo [INIT] dvc.yaml(train) olusturuluyor...
-            if not exist models mkdir models
-            dvc add "data\\student_scores.csv" 2>nul || echo already tracked
-            dvc stage add -n train -d train.py -d data\\student_scores.csv -o models\\model.pkl python train.py -- --in data\\student_scores.csv --out models\\model.pkl
-
-            git config user.name "%GIT_USER_NAME%"
-            git config user.email "%GIT_USER_EMAIL%"
-            git add dvc.yaml dvc.lock data\\student_scores.csv.dvc .gitignore
-            git commit -m "CI: add dvc.yaml(train) if missing" || echo no changes
-          ) else (
-            echo [OK] dvc.yaml zaten var.
-          )
-          exit /b 0
-        """
-      }
-    }
-
-    stage('Train via DVC (repro)') {
+    stage('Train via DVC (repro if dvc.yaml exists)') {
       steps {
         bat """
           call "%VENV%\\Scripts\\activate"
@@ -185,6 +162,6 @@ pipeline {
 
   post {
     success { echo "✅ Build OK — venv ve pip cache korundu" }
-    failure { echo "❌ Build FAILED — Console Output'u kontrol et (özellikle 'Track data' ve 'Ensure dvc.yaml' stage'leri) " }
+    failure { echo "❌ Build FAILED — Console Output'u kontrol et" }
   }
 }
