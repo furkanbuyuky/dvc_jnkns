@@ -35,15 +35,24 @@ pipeline {
           ) else (
             echo [SETUP] venv already exists.
           )
-
+    
           call "%VENV%\\Scripts\\activate"
           python -m pip install --upgrade pip
           python -m pip install --cache-dir "%PIP_CACHE_DIR%" dvc
+    
+          rem === Proje bagimliliklari ===
+          if exist requirements.txt (
+            python -m pip install --cache-dir "%PIP_CACHE_DIR%" -r requirements.txt
+          ) else (
+            python -m pip install --cache-dir "%PIP_CACHE_DIR%" numpy
+          )
+    
           dvc --version
           echo [SETUP DONE]
         """
       }
     }
+
 
     stage('Ensure DVC repo (.dvc)') {
       steps {
@@ -166,5 +175,6 @@ pipeline {
     failure { echo "❌ Build FAILED — Console Output'u kontrol et" }
   }
 }
+
 
 
