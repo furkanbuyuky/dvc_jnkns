@@ -1,0 +1,8 @@
+stages:
+  train:
+    cmd: python train.py -- --in data\student_scores.csv --out models\model.pkl
+    deps:
+    - data\student_scores.csv
+    - train.py
+    outs:
+    - models\model.pkl
